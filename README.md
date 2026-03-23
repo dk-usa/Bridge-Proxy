@@ -1,138 +1,101 @@
-# Anthropic OpenAI Bridge
+# LLM Gateway — Universal AI Proxy
 
-A production-grade bridge service that translates Claude Code CLI requests (Anthropic Messages API) to OpenAI-compatible APIs (like NVIDIA NIM), with optional Anthropic fallback.
+A production-grade API gateway that provides a unified OpenAI-compatible interface to any LLM provider. Route requests to OpenAI, Anthropic, Azure, Google, Cohere, Mistral, and any OpenAI-compatible endpoint through a single API.
 
-## Architecture Overview
+Inspired by LiteLLM, but built with TypeScript/Fastify for maximum control and performance.
+
+## Features
+
+- **Universal Provider Support** — OpenAI, Anthropic, Azure, Google, Cohere, Mistral, and any OpenAI-compatible API
+- **Unified API** — Single OpenAI-compatible endpoint for all providers
+- **Anthropic Native API** — Full `/v1/messages` endpoint support
+- **Model Routing** — Route requests to different providers based on model name
+- **Multi-Provider Failover** — Automatic fallback when primary provider fails
+- **Streaming Support** — SSE streaming with proper event translation
+- **Tool/Function Calling** — Function definitions and tool use across providers
+- **Rate Limiting** — Redis-backed per-key rate limiting
+- **Caching** — Tenant-isolated response caching
+- **Multi-Tenant** — API key based tenant isolation
+- **Admin Dashboard** — Web UI for managing keys, models, and viewing logs
+
+## Architecture
 
 ```
-┌─────────────────┐     ┌──────────────────┐     ┌─────────────────────┐
-│  Claude Code    │────▶│  This Bridge    │────▶│  OpenAI Compatible │
-│  (Anthropic API)│     │  (Fastify)      │     │  (NVIDIA NIM, etc) │
-└─────────────────┘     └──────────────────┘     └─────────────────────┘
-                               │
-                               │ (Optional Fallback)
-                               ▼
-                        ┌──────────────────┐
-                        │   Anthropic      │
-                        │   (Direct)       │
-                        └──────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                          LLM Gateway                            │
+├─────────────────────────────────────────────────────────────────┤
+│  ┌──────────┐   ┌──────────┐   ┌──────────┐   ┌──────────┐     │
+│  │ OpenAI   │   │Anthropic │   │  Azure   │   │  Google  │     │
+│  │ Endpoint │   │ Endpoint │   │ Endpoint │   │ Endpoint │     │
+│  └────┬─────┘   └────┬─────┘   └────┬─────┘   └────┬─────┘     │
+│       │              │              │              │            │
+│       └──────────────┴──────────────┴──────────────┘            │
+│                              │                                   │
+│                    ┌─────────▼─────────┐                        │
+│                    │   Provider Layer   │                        │
+│                    │  (Adapter Pattern) │                        │
+│                    └─────────┬─────────┘                        │
+│                              │                                   │
+│                    ┌─────────▼─────────┐                        │
+│                    │   Unified Cache    │                        │
+│                    │  & Rate Limiting   │                        │
+│                    └───────────────────┘                        │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Components
 
-| Component                        | Purpose                            |
-| -------------------------------- | ---------------------------------- |
-| **Routes** (`src/routes/`)       | Fastify HTTP endpoints             |
-| **Adapters** (`src/adapters/`)   | Request/response format conversion |
-| **Providers** (`src/providers/`) | Abstract provider interface        |
-| **Streaming** (`src/streaming/`) | SSE stream processing pipeline     |
-| **Schemas** (`src/schemas/`)     | Zod validation schemas             |
-| **Config** (`src/config/`)       | Environment-based configuration    |
+| Component        | Purpose                                            |
+| ---------------- | -------------------------------------------------- |
+| `src/routes/`    | Fastify HTTP endpoints                             |
+| `src/providers/` | Provider adapters (OpenAI, Anthropic, Azure, etc.) |
+| `src/adapters/`  | Request/response format conversion                 |
+| `src/streaming/` | SSE stream processing pipeline                     |
+| `src/services/`  | Cache, rate limiting, logging, tenancy             |
+| `src/schemas/`   | Zod validation schemas                             |
 
-### Request Flow
+## Quick Start
 
-1. **Request Validation** - Zod schema validates incoming Anthropic request
-2. **Normalization** - Convert Anthropic format to OpenAI format
-3. **Provider Routing** - Route to primary or fallback provider
-4. **API Call** - Execute request against provider
-5. **Response Denormalization** - Convert OpenAI response back to Anthropic format
-6. **Streaming** - If streaming, convert SSE chunks from OpenAI to Anthropic events
-
-## Protocol Mapping
-
-### Request Mapping
-
-| Anthropic Field  | OpenAI Field                      | Notes                               |
-| ---------------- | --------------------------------- | ----------------------------------- |
-| `model`          | `model`                           | Can be mapped via config            |
-| `messages`       | `messages`                        | Content blocks converted            |
-| `system`         | First message with `role: system` |                                     |
-| `max_tokens`     | `max_tokens`                      |                                     |
-| `temperature`    | `temperature`                     |                                     |
-| `top_p`          | `top_p`                           |                                     |
-| `stop_sequences` | `stop`                            |                                     |
-| `tools`          | `tools`                           | Converted to OpenAI function format |
-| `tool_choice`    | `tool_choice`                     | Mapped appropriately                |
-
-### Response Mapping
-
-| OpenAI Field                           | Anthropic Field           |
-| -------------------------------------- | ------------------------- |
-| `choices[0].message.content`           | `content[0].text`         |
-| `choices[0].message.tool_calls`        | `content[*].tool_use`     |
-| `choices[0].finish_reason: stop`       | `stop_reason: end_turn`   |
-| `choices[0].finish_reason: length`     | `stop_reason: max_tokens` |
-| `choices[0].finish_reason: tool_calls` | `stop_reason: tool_use`   |
-| `usage.completion_tokens`              | `usage.output_tokens`     |
-
-### Streaming Event Mapping
-
-| OpenAI Event                     | Anthropic Event                          |
-| -------------------------------- | ---------------------------------------- |
-| `choices[0].delta.content`       | `content_block_delta` (text_delta)       |
-| `choices[0].delta.tool_calls`    | `content_block_delta` (input_json_delta) |
-| Chunk with `finish_reason: stop` | `message_delta` + `message_stop`         |
-
-## Installation
-
-### Prerequisites
-
-- Node.js >= 20.0.0
-- npm or yarn
-
-### Install Dependencies
+### 1. Install
 
 ```bash
 npm install
 ```
 
-### Build
+### 2. Configure Environment
 
 ```bash
-npm run build
+cp .env.example .env
 ```
 
-### Run Tests
+Edit `.env`:
 
 ```bash
-npm test
+# Primary Provider (e.g., OpenAI, Groq, Fireworks, etc.)
+PRIMARY_API_KEY=sk-...
+PRIMARY_BASE_URL=https://api.openai.com/v1
+PRIMARY_MODEL=gpt-4o
+
+# Optional: Fallback Provider (e.g., Anthropic)
+FALLBACK_API_KEY=sk-ant-...
+FALLBACK_BASE_URL=https://api.anthropic.com
+FALLBACK_MODEL=claude-sonnet-4-20250514
+
+# Server
+SERVER_PORT=3000
+
+# Admin Dashboard
+ADMIN_TOKEN=your-secure-token
 ```
 
-## Claude Code Setup
-
-### 1. Configure Environment Variables
-
-```bash
-export PRIMARY_API_KEY="your-nvidia-api-key"
-export PRIMARY_BASE_URL="https://integrate.api.nvidia.com/v1"
-export PRIMARY_MODEL="nvidia/llama-3.1-nemotron-70b-instruct"
-```
-
-### 2. Start the Bridge
+### 3. Start Server
 
 ```bash
 # Development
 npm run dev
 
 # Production
-npm run build
-npm start
-```
-
-### 3. Configure Claude Code
-
-Add to your Claude Code settings or use CLI:
-
-```bash
-claude config set apiUrl http://localhost:3000
-```
-
-Or configure via `~/.claude/settings.json`:
-
-```json
-{
-  "apiUrl": "http://localhost:3000"
-}
+npm run build && npm start
 ```
 
 ### 4. Verify
@@ -141,48 +104,127 @@ Or configure via `~/.claude/settings.json`:
 curl http://localhost:3000/health
 ```
 
-Expected response:
+## API Endpoints
 
-```json
-{ "status": "ok", "timestamp": "..." }
-```
-
-## NVIDIA NIM Setup
-
-### Option 1: NVIDIA NIM (Self-Hosted)
+### OpenAI-Compatible
 
 ```bash
-export PRIMARY_BASE_URL="http://localhost:8000/v1"
-export PRIMARY_MODEL="meta/llama-3.1-70b-instruct"
+# Chat Completions
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $PRIMARY_API_KEY" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# List Models
+curl http://localhost:3000/v1/models
+
+# Embeddings
+curl http://localhost:3000/v1/embeddings \
+  -H "Content-Type: application/json" \
+  -d '{"input": "Hello world", "model": "text-embedding-3-small"}'
 ```
 
-### Option 2: NVIDIA API Catalog (Cloud)
+### Anthropic-Compatible
 
 ```bash
-export PRIMARY_API_KEY="nvapi-..."
-export PRIMARY_BASE_URL="https://integrate.api.nvidia.com/v1"
-export PRIMARY_MODEL="nvidia/llama-3.1-nemotron-70b-instruct"
+# Messages (non-streaming)
+curl http://localhost:3000/v1/messages \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $PRIMARY_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -d '{
+    "model": "claude-sonnet-4-20250514",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+
+# Messages (streaming)
+curl http://localhost:3000/v1/messages/stream \
+  -H "Content-Type: application/json" \
+  -H "x-api-key: $PRIMARY_API_KEY" \
+  -d '{"model": "claude-sonnet-4-20250514", "messages": [{"role": "user", "content": "Hello!"}], "stream": true}'
 ```
 
-### Option 3: OpenAI Compatible Endpoints
+## Supported Providers
 
-The bridge works with any OpenAI-compatible API:
+| Provider           | Type              | Status |
+| ------------------ | ----------------- | ------ |
+| OpenAI             | openai-compatible | ✅     |
+| Anthropic          | anthropic         | ✅     |
+| Azure OpenAI       | azure             | ✅     |
+| Google AI (Gemini) | google            | ✅     |
+| Cohere             | cohere            | ✅     |
+| Mistral            | mistral           | ✅     |
+| Groq               | openai-compatible | ✅     |
+| NVIDIA NIM         | openai-compatible | ✅     |
+| Ollama (local)     | openai-compatible | ✅     |
+| LM Studio          | openai-compatible | ✅     |
+| vLLM               | openai-compatible | ✅     |
+| Fireworks AI       | openai-compatible | ✅     |
+| Perplexity         | openai-compatible | ✅     |
+| Replicate          | openai-compatible | ✅     |
+
+Any provider with an OpenAI-compatible API works out of the box.
+
+## Provider Configuration
+
+### OpenAI-Compatible Providers
 
 ```bash
-# Ollama (local)
-export PRIMARY_BASE_URL="http://localhost:11434/v1"
-export PRIMARY_MODEL="llama3"
+# Groq
+PRIMARY_API_KEY=gsk_...
+PRIMARY_BASE_URL=https://api.groq.com/openai/v1
+PRIMARY_MODEL=llama-3.1-70b-versatile
+
+# Fireworks
+PRIMARY_API_KEY=fw_...
+PRIMARY_BASE_URL=https://api.fireworks.ai/inference/v1
+PRIMARY_MODEL=accounts/fireworks/models/llama-v3-70b-instruct
+
+# Perplexity
+PRIMARY_API_KEY=pplx-...
+PRIMARY_BASE_URL=https://api.perplexity.ai
+PRIMARY_MODEL=llama-3.1-sonar-large-128k-online
+
+# Local Ollama
+PRIMARY_API_KEY=ollama
+PRIMARY_BASE_URL=http://localhost:11434/v1
+PRIMARY_MODEL=llama3
 
 # LM Studio
-export PRIMARY_BASE_URL="http://localhost:1234/v1"
+PRIMARY_API_KEY=lm-studio
+PRIMARY_BASE_URL=http://localhost:1234/v1
+PRIMARY_MODEL=llama3
+```
 
-# vLLM
-export PRIMARY_BASE_URL="http://localhost:8000/v1"
+### Anthropic
+
+```bash
+FALLBACK_API_KEY=sk-ant-...
+FALLBACK_BASE_URL=https://api.anthropic.com
+FALLBACK_MODEL=claude-sonnet-4-20250514
+```
+
+### Azure OpenAI
+
+```bash
+AZURE_API_KEY=your-azure-key
+AZURE_BASE_URL=https://your-resource.openai.azure.com
+AZURE_MODEL=gpt-4o
+```
+
+### Google AI (Gemini)
+
+```bash
+GOOGLE_API_KEY=your-google-key
+GOOGLE_MODEL=gemini-pro
 ```
 
 ## Environment Variables
 
-### Server Configuration
+### Server
 
 | Variable          | Default   | Description          |
 | ----------------- | --------- | -------------------- |
@@ -192,6 +234,25 @@ export PRIMARY_BASE_URL="http://localhost:8000/v1"
 | `LOG_LEVEL`       | `info`    | Logging level        |
 | `LOG_PRETTY`      | `false`   | Pretty print logs    |
 
+### Primary Provider
+
+| Variable              | Default                     | Description     |
+| --------------------- | --------------------------- | --------------- |
+| `PRIMARY_API_KEY`     | -                           | API key         |
+| `PRIMARY_BASE_URL`    | `https://api.openai.com/v1` | Base URL        |
+| `PRIMARY_MODEL`       | -                           | Default model   |
+| `PRIMARY_TIMEOUT`     | `60000`                     | Request timeout |
+| `PRIMARY_MAX_RETRIES` | `3`                         | Max retries     |
+
+### Fallback Provider
+
+| Variable            | Default | Description     |
+| ------------------- | ------- | --------------- |
+| `FALLBACK_API_KEY`  | -       | API key         |
+| `FALLBACK_BASE_URL` | -       | Base URL        |
+| `FALLBACK_MODEL`    | -       | Default model   |
+| `FALLBACK_TIMEOUT`  | `60000` | Request timeout |
+
 ### Rate Limiting
 
 | Variable                 | Default    | Description             |
@@ -200,200 +261,163 @@ export PRIMARY_BASE_URL="http://localhost:8000/v1"
 | `RATE_LIMIT_MAX`         | `100`      | Max requests per window |
 | `RATE_LIMIT_TIME_WINDOW` | `1 minute` | Time window             |
 
-### CORS
+### Caching
 
-| Variable       | Default | Description     |
-| -------------- | ------- | --------------- |
-| `CORS_ENABLED` | `true`  | Enable CORS     |
-| `CORS_ORIGIN`  | `*`     | Allowed origins |
+| Variable        | Default | Description         |
+| --------------- | ------- | ------------------- |
+| `CACHE_ENABLED` | `true`  | Enable caching      |
+| `CACHE_TTL`     | `3600`  | Cache TTL (seconds) |
 
-### Primary Provider
+### Redis
 
-| Variable              | Default                     | Description        |
-| --------------------- | --------------------------- | ------------------ |
-| `PRIMARY_API_KEY`     | -                           | API key (required) |
-| `PRIMARY_BASE_URL`    | `https://api.openai.com/v1` | Base URL           |
-| `PRIMARY_MODEL`       | -                           | Default model      |
-| `PRIMARY_TIMEOUT`     | `60000`                     | Request timeout    |
-| `PRIMARY_MAX_RETRIES` | `3`                         | Max retries        |
+| Variable        | Default | Description          |
+| --------------- | ------- | -------------------- |
+| `REDIS_URL`     | -       | Redis connection URL |
+| `REDIS_ENABLED` | `false` | Enable Redis         |
 
-### Fallback Provider (Optional)
+## Admin Dashboard
 
-| Variable            | Default | Description       |
-| ------------------- | ------- | ----------------- |
-| `FALLBACK_API_KEY`  | -       | Fallback API key  |
-| `FALLBACK_BASE_URL` | -       | Fallback base URL |
-| `FALLBACK_MODEL`    | -       | Fallback model    |
-| `FALLBACK_TIMEOUT`  | `60000` | Fallback timeout  |
+The built-in admin dashboard provides:
 
-### Advanced
+- **API Keys** — Create, rotate, and manage API keys
+- **Organizations** — Multi-tenant management
+- **Teams** — Team-level organization
+- **Users** — User management
+- **Models** — Model routing and mapping
+- **Providers** — Provider configuration
+- **Logs** — Request/response logging
+- **Live Stream** — Real-time request streaming
 
-| Variable                  | Default    | Description      |
-| ------------------------- | ---------- | ---------------- |
-| `ROUTER_STRATEGY`         | `failover` | Routing strategy |
-| `CIRCUIT_BREAKER_ENABLED` | `true`     | Circuit breaker  |
+```bash
+# Start with admin
+npm run dev
 
-## Streaming Explanation
-
-### How It Works
-
-1. **Request**: Client sends streaming request with `stream: true`
-2. **Provider Call**: Bridge calls provider with streaming enabled
-3. **Chunk Processing**: Each OpenAI chunk is parsed and converted
-4. **Event Translation**: OpenAI delta events become Anthropic SSE events
-5. **Client Delivery**: SSE events sent to client in real-time
-
-### SSE Events
-
-The bridge emits these Anthropic-compatible SSE events:
-
-```
-event: message_start
-data: {"type":"message_start","message":{...}}
-
-event: content_block_start
-data: {"type":"content_block_start","index":0,"content_block":{"type":"text"}}
-
-event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"Hello"}}
-
-event: content_block_stop
-data: {"type":"content_block_stop","index":0}
-
-event: message_delta
-data: {"type":"message_delta","delta":{"stop_reason":"end_turn"},"usage":{"output_tokens":10}}
-
-event: message_stop
-data: {}
+# Access at http://localhost:3000/admin
+# Login with ADMIN_TOKEN
 ```
 
-### Streaming Endpoints
+## Streaming
 
-| Endpoint                   | Description           |
-| -------------------------- | --------------------- |
-| `POST /v1/messages`        | Non-streaming request |
-| `POST /v1/messages/stream` | Streaming request     |
-
-### Client Example
+### SSE Event Format
 
 ```javascript
-const response = await fetch('http://localhost:3000/v1/messages/stream', {
+const response = await fetch('http://localhost:3000/v1/chat/completions', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    Authorization: 'Bearer $API_KEY',
+  },
   body: JSON.stringify({
-    model: 'claude-3-5-sonnet-20240620',
-    messages: [{ role: 'user', content: 'Hello' }],
-    max_tokens: 1024,
+    model: 'gpt-4o',
+    messages: [{ role: 'user', content: 'Count to 5' }],
     stream: true,
   }),
 });
 
-const reader = response.body.getReader();
-const decoder = new TextDecoder();
-
-while (true) {
-  const { done, value } = await reader.read();
-  if (done) break;
-  console.log(decoder.decode(value));
+for await (const chunk of response.body) {
+  console.log(chunk.toString());
 }
+```
+
+### Event Types
+
+```
+event: chat.completion.chunk
+data: {"id":"...","choices":[{"delta":{"content":"1"},"index":0}]}
+
+event: chat.completion.content_done
+data: {"id":"...","choices":[{"delta":{},"index":0,"finish_reason":"stop"}]}
+
+event: chat.completion.done
+data: {"id":"...","usage":{...}}
+```
+
+## Claude Code Integration
+
+Configure Claude Code to use the gateway:
+
+```bash
+# Configure Claude Code
+claude config set apiUrl http://localhost:3000
+
+# Or set in ~/.claude/settings.json
+{
+  "apiUrl": "http://localhost:3000"
+}
+```
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run in development
+npm run dev
+
+# Run tests
+npm test
+
+# Run tests once
+npm run test:run
+
+# Lint
+npm run lint
+
+# Typecheck
+npm run typecheck
+
+# Build
+npm run build
+```
+
+## Deployment
+
+### Docker
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
+COPY dist/ ./dist/
+EXPOSE 3000
+CMD ["node", "dist/index.js"]
+```
+
+### Docker Compose
+
+```yaml
+version: '3.8'
+services:
+  gateway:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - PRIMARY_API_KEY=${PRIMARY_API_KEY}
+      - PRIMARY_BASE_URL=${PRIMARY_BASE_URL}
+      - PRIMARY_MODEL=${PRIMARY_MODEL}
+    volumes:
+      - ./data:/app/data
+
+  redis:
+    image: redis:alpine
+    ports:
+      - '6379:6379'
 ```
 
 ## Limitations
 
-### Supported Features
-
-- ✅ Text messages
-- ✅ Image content (base64, URL)
-- ✅ Tool definitions
-- ✅ Tool calls (function calling)
-- ✅ Tool results
-- ✅ Streaming (text and tools)
-- ✅ System prompts
-- ✅ Temperature, top_p, max_tokens
-- ✅ Model mapping
-
-### Known Limitations
-
-| Limitation          | Description                                                        |
-| ------------------- | ------------------------------------------------------------------ |
-| **Cache Control**   | Anthropic cache control is not supported (no equivalent in OpenAI) |
-| **Top K**           | Anthropic `top_k` has no OpenAI equivalent                         |
-| **Stop Sequences**  | Limited mapping to OpenAI `stop` parameter                         |
-| **Refusals**        | OpenAI refusals may not map perfectly to Anthropic                 |
-| **Vision**          | Limited vision capabilities depending on provider                  |
-| **Streaming Tools** | Tool streaming support varies by provider                          |
-
-### Provider-Specific Notes
-
-| Provider   | Streaming | Tools | Vision |
-| ---------- | --------- | ----- | ------ |
-| NVIDIA NIM | ✅        | ✅    | ✅     |
-| OpenAI     | ✅        | ✅    | ✅     |
-| Ollama     | ⚠️        | ❌    | ⚠️     |
-| vLLM       | ✅        | ✅    | ✅     |
-
-## Troubleshooting
-
-### Connection Refused
-
-```bash
-# Check if server is running
-curl http://localhost:3000/health
-
-# Check port is not in use
-lsof -i :3000
-```
-
-### Authentication Errors
-
-```bash
-# Verify API key is set
-echo $PRIMARY_API_KEY
-
-# Test direct provider access
-curl -H "Authorization: Bearer $PRIMARY_API_KEY" \
-  $PRIMARY_BASE_URL/models
-```
-
-### Model Not Found
-
-```bash
-# List available models
-curl http://localhost:3000/v1/models
-
-# Check model mapping in config
-# Add to modelMapping in config if needed
-```
-
-### Streaming Issues
-
-- Ensure client handles SSE format correctly
-- Check provider supports streaming
-- Verify `stream_options.include_usage` is supported
-
-## API Reference
-
-### Endpoints
-
-| Method | Path                  | Description              |
-| ------ | --------------------- | ------------------------ |
-| GET    | `/health`             | Health check             |
-| GET    | `/v1/models`          | List models              |
-| GET    | `/v1/models/:model`   | Get model info           |
-| POST   | `/v1/messages`        | Create message           |
-| POST   | `/v1/messages/stream` | Create streaming message |
-
-### Error Responses
-
-```json
-{
-  "type": "error",
-  "error": {
-    "type": "invalid_request_error",
-    "message": "Invalid request body"
-  }
-}
-```
+| Feature               | Support               |
+| --------------------- | --------------------- |
+| Text                  | ✅ Full               |
+| Vision/Images         | ✅ Provider-dependent |
+| Tool/Function Calling | ✅ Supported          |
+| Streaming             | ✅ SSE                |
+| Streaming Tools       | ⚠️ Varies by provider |
+| Cache Control         | ⚠️ Anthropic-specific |
+| Batch Requests        | ❌ Not supported      |
 
 ## License
 
