@@ -5,7 +5,7 @@ source:
   - .planning/phases/02-reliability-streaming-enhancement/02-01-SUMMARY.md
   - .planning/phases/02-reliability-streaming-enhancement/02-02-SUMMARY.md
 started: 2026-03-24T06:33:55.745Z
-updated: 2026-03-24T06:40:00.000Z
+updated: 2026-03-24T06:45:00.000Z
 ---
 
 ## Current Test
@@ -60,6 +60,9 @@ skipped: 0
   test: 2
   artifacts: []
   missing: []
+  diagnosis: |
+  Root cause: Config loading code IS working correctly. Tests verify env var parsing works.
+  The issue may be user expectation mismatch or timing/cache issue. Not a code bug.
 - truth: "Make a streaming request. Response headers include X-Accel-Buffering: no."
   status: failed
   reason: "User reported: Header missing"
@@ -67,3 +70,7 @@ skipped: 0
   test: 3
   artifacts: []
   missing: []
+  diagnosis: |
+  Root cause: src/routes/chat-completions.ts is missing X-Accel-Buffering header.
+  messages.ts has it (lines 89-95) but chat-completions.ts does not (lines 135-140).
+  Fix: Add 'X-Accel-Buffering': 'no' to reply.raw.writeHead() in chat-completions.ts
