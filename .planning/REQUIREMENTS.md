@@ -23,8 +23,8 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Observability
 
 - [x] **OBS-01**: Provider health status tracked (healthy/unhealthy/degraded)
-- [ ] **OBS-02**: Health check endpoint returns provider status for all configured providers
-- [ ] **OBS-03**: Provider health integrated into admin dashboard UI
+- [x] **OBS-02**: Health check endpoint returns provider status for all configured providers
+- [x] **OBS-03**: Provider health integrated into admin dashboard UI
 - [x] **OBS-04**: Provider health status updates based on recent request success/failure rate
 
 ### Smart Caching
@@ -98,8 +98,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REL-03      | Phase 2: Reliability & Streaming Enhancement | Complete |
 | REL-04      | Phase 2: Reliability & Streaming Enhancement | Pending  |
 | OBS-01      | Phase 3: Observability & Provider Health     | Complete |
-| OBS-02      | Phase 3: Observability & Provider Health     | Pending  |
-| OBS-03      | Phase 3: Observability & Provider Health     | Pending  |
+| OBS-02      | Phase 3: Observability & Provider Health     | Complete |
+| OBS-03      | Phase 3: Observability & Provider Health     | Complete |
 | OBS-04      | Phase 3: Observability & Provider Health     | Complete |
 | CACHE-01    | Phase 4: Smart Caching & Semantic Similarity | Pending  |
 | CACHE-02    | Phase 4: Smart Caching & Semantic Similarity | Pending  |

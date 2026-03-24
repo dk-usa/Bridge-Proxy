@@ -67,7 +67,7 @@ Plans:
 Plans:
 
 - [x] 03-01-PLAN.md — Health calculation with rolling window
-- [ ] 03-02-PLAN.md — Dashboard UI health display
+- [x] 03-02-PLAN.md — Dashboard UI health display
 
 **UI hint**: yes
 
