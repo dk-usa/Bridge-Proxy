@@ -73,11 +73,21 @@ export const configSchema = z.object({
       heartbeatIntervalMs: z.number().int().positive().default(10000),
     })
     .default({ heartbeatIntervalMs: 10000 }),
+  semanticCache: z
+    .object({
+      enabled: z.boolean().default(false), // D-10: disabled by default
+      threshold: z.number().min(0).max(1).default(0.15), // D-05, D-06
+      embeddingModel: z.string().optional(),
+      ttl: z.number().positive().default(3600000), // 1 hour default
+    })
+    .optional()
+    .default({ enabled: false, threshold: 0.15, ttl: 3600000 }),
 });
 
 export type Config = z.infer<typeof configSchema>;
 export type ProviderConfig = z.infer<typeof providerConfigSchema>;
 export type ModelMapping = z.infer<typeof modelMappingSchema>;
+export type SemanticCacheConfig = NonNullable<Config['semanticCache']>;
 
 export const DEFAULT_MODEL_MAPPING: ModelMapping = {
   'claude-3-5-sonnet-20240620': 'meta/llama-3.1-70b-instruct',
