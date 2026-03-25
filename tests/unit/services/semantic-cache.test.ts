@@ -242,6 +242,113 @@ describe('SemanticCacheService', () => {
       const result = await disabledService.findSimilar([0.1, 0.2], 'tenant');
       expect(result).toBeNull();
     });
+
+    it('should return most similar entry above threshold', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      // Store two entries
+      // Cosine similarity of [1,0] with [0.9, sqrt(1-0.9^2)] = [0.9, 0.436] would give ~0.9
+      // But for simplicity: [1,0,0,0,0] vs [1,0,0,0,0] = 1.0 (identical)
+      // [1,0,0,0,0] vs [0.8, 0.6, 0, 0, 0] = 0.8 (dot=0.8, magA=1, magB=1)
+      const entry1Embedding = [1, 0, 0, 0, 0]; // Identical - similarity 1.0
+      const entry2Embedding = [0.8, 0.6, 0, 0, 0]; // Similarity 0.8
+
+      const tenantId = 'org1:team1';
+
+      await service.set('key1', entry1Embedding, { response: 'entry1' }, tenantId);
+      await service.set('key2', entry2Embedding, { response: 'entry2' }, tenantId);
+
+      // Query with [1,0,0,0,0] - should return entry1 (higher similarity)
+      const result = await service.findSimilar<{ response: string }>([1, 0, 0, 0, 0], tenantId);
+
+      expect(result).not.toBeNull();
+      expect(result?.data.response).toBe('entry1');
+      expect(result?.similarityScore).toBeCloseTo(1.0, 5);
+    });
+
+    it('should not return entries below threshold', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      // Set threshold to 0.5
+      const strictService = new SemanticCacheService({ threshold: 0.5, enabled: true });
+
+      // Store an entry with low similarity
+      const entryEmbedding = [0.3, 0.7, 0, 0, 0]; // Similarity to [1,0,0,0,0] = 0.3
+
+      const tenantId = 'org1:team1';
+
+      await strictService.set('key1', entryEmbedding, { response: 'entry' }, tenantId);
+
+      // Query - should return null (below threshold)
+      const result = await strictService.findSimilar([1, 0, 0, 0, 0], tenantId);
+      expect(result).toBeNull();
+    });
+
+    it('should exclude expired entries', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      // Store entry with very short TTL (already expired)
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      await service.set('key', embedding, { response: 'expired' }, tenantId, { ttl: 1 });
+
+      // Wait for entry to expire
+      await new Promise((resolve) => setTimeout(resolve, 10));
+
+      const result = await service.findSimilar(embedding, tenantId);
+      expect(result).toBeNull();
+    });
+
+    it('should increment hits on successful match', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      await service.set('key', embedding, { response: 'test' }, tenantId);
+
+      const initialStats = service.getStats();
+      const initialHits = initialStats.hits;
+
+      await service.findSimilar(embedding, tenantId);
+
+      const stats = service.getStats();
+      expect(stats.hits).toBe(initialHits + 1);
+    });
+
+    it('should increment misses when no match', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      const initialStats = service.getStats();
+      const initialMisses = initialStats.misses;
+
+      await service.findSimilar(embedding, tenantId);
+
+      const stats = service.getStats();
+      expect(stats.misses).toBe(initialMisses + 1);
+    });
+
+    it('should track similarity score on hits', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      await service.set('key', embedding, { response: 'test' }, tenantId);
+
+      const initialStats = service.getStats();
+      const initialScores = initialStats.similarityScores.length;
+
+      await service.findSimilar(embedding, tenantId);
+
+      const stats = service.getStats();
+      expect(stats.similarityScores.length).toBe(initialScores + 1);
+      expect(stats.similarityScores[stats.similarityScores.length - 1]).toBe(1);
+    });
   });
 
   describe('getStats', () => {
