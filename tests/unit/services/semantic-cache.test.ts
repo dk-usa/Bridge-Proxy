@@ -359,6 +359,107 @@ describe('SemanticCacheService', () => {
       expect(stats).toHaveProperty('similarityScores');
       expect(stats).toHaveProperty('embeddingLatencies');
     });
+
+    it('should return cost savings estimate', () => {
+      const stats = service.getStats();
+      expect(stats).toHaveProperty('estimatedCostSavings');
+      expect(typeof stats.estimatedCostSavings).toBe('number');
+    });
+
+    it('should return hit rate', () => {
+      const stats = service.getStats();
+      expect(stats).toHaveProperty('hitRate');
+      expect(typeof stats.hitRate).toBe('number');
+    });
+
+    it('should return average similarity score', () => {
+      const stats = service.getStats();
+      expect(stats).toHaveProperty('avgSimilarityScore');
+      expect(typeof stats.avgSimilarityScore).toBe('number');
+    });
+
+    it('should return average embedding latency', () => {
+      const stats = service.getStats();
+      expect(stats).toHaveProperty('avgEmbeddingLatencyMs');
+      expect(typeof stats.avgEmbeddingLatencyMs).toBe('number');
+    });
+
+    it('should calculate hit rate correctly', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      // Store entry
+      await service.set('key', embedding, { response: 'test' }, tenantId);
+
+      // Hit
+      await service.findSimilar(embedding, tenantId);
+      // Miss
+      await service.findSimilar([0, 1, 0, 0, 0], tenantId);
+
+      const stats = service.getStats();
+      expect(stats.hitRate).toBeCloseTo(0.5, 5);
+    });
+
+    it('should track cost savings on hits', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      await service.set('key', embedding, { response: 'test' }, tenantId);
+
+      const initialStats = service.getStats();
+      const initialCostSavings = initialStats.estimatedCostSavings;
+
+      // Each hit saves approximately $0.0001 per 1K tokens
+      await service.findSimilar(embedding, tenantId);
+
+      const stats = service.getStats();
+      expect(stats.estimatedCostSavings).toBeGreaterThan(initialCostSavings);
+    });
+
+    it('should calculate average similarity score correctly', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding1 = [1, 0, 0, 0, 0];
+      const embedding2 = [0.8, 0.6, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      await service.set('key1', embedding1, { response: 'test1' }, tenantId);
+      await service.set('key2', embedding2, { response: 'test2' }, tenantId);
+
+      // Hit with similarity 1.0
+      await service.findSimilar(embedding1, tenantId);
+
+      const stats = service.getStats();
+      expect(stats.avgSimilarityScore).toBeCloseTo(1.0, 5);
+    });
+  });
+
+  describe('resetStats', () => {
+    it('should reset all metrics to initial values', async () => {
+      vi.mocked(isRedisAvailable).mockReturnValue(false);
+
+      const embedding = [1, 0, 0, 0, 0];
+      const tenantId = 'org1:team1';
+
+      await service.set('key', embedding, { response: 'test' }, tenantId);
+      await service.findSimilar(embedding, tenantId);
+
+      const statsBefore = service.getStats();
+      expect(statsBefore.hits).toBeGreaterThan(0);
+
+      service.resetStats();
+
+      const statsAfter = service.getStats();
+      expect(statsAfter.hits).toBe(0);
+      expect(statsAfter.misses).toBe(0);
+      expect(statsAfter.similarityScores).toEqual([]);
+      expect(statsAfter.embeddingLatencies).toEqual([]);
+      expect(statsAfter.estimatedCostSavings).toBe(0);
+    });
   });
 
   describe('threshold management', () => {

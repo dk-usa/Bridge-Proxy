@@ -30,10 +30,15 @@ export interface SemanticCacheEntry<T> extends CacheEntry<T> {
 
 /**
  * Statistics for semantic cache
+ * Per decisions D-12, D-13, D-14, D-15
  */
 export interface SemanticCacheStats {
   hits: number;
   misses: number;
+  hitRate: number;
+  avgSimilarityScore: number;
+  avgEmbeddingLatencyMs: number;
+  estimatedCostSavings: number;
   similarityScores: number[];
   embeddingLatencies: number[];
 }
@@ -87,13 +92,17 @@ export class SemanticCacheService {
   private memoryCache: Map<string, SemanticCacheEntry<unknown>> = new Map();
   private hits = 0;
   private misses = 0;
-  private similarityScores: number[] = [];
-  private embeddingLatencies: number[] = [];
+  private similarityScores: number[] = []; // D-13
+  private embeddingLatencies: number[] = []; // D-15
+  private costSavingsEstimate = 0; // D-14
   private threshold: number;
   private enabled: boolean;
   private defaultTtl: number;
   private embeddingModel?: string;
   private readonly keyPrefix = 'semantic-cache';
+
+  // Cost estimate: $0.0001 per 1K tokens saved per hit (baseline estimate)
+  private readonly COST_PER_HIT_ESTIMATE = 0.0001;
 
   constructor(config: SemanticCacheConfig = {}) {
     this.threshold = config.threshold ?? 0.15;
@@ -339,6 +348,8 @@ export class SemanticCacheService {
     if (bestMatch) {
       this.hits++;
       this.similarityScores.push(bestSimilarity);
+      // Track cost savings estimate (D-14)
+      this.costSavingsEstimate += this.COST_PER_HIT_ESTIMATE;
       return bestMatch;
     }
 
@@ -377,14 +388,41 @@ export class SemanticCacheService {
 
   /**
    * Get semantic cache statistics
+   * Per decisions D-12, D-13, D-14, D-15
    */
   getStats(): SemanticCacheStats {
+    const total = this.hits + this.misses;
+    const hitRate = total > 0 ? this.hits / total : 0;
+    const avgSimilarityScore =
+      this.similarityScores.length > 0
+        ? this.similarityScores.reduce((a, b) => a + b, 0) / this.similarityScores.length
+        : 0;
+    const avgEmbeddingLatencyMs =
+      this.embeddingLatencies.length > 0
+        ? this.embeddingLatencies.reduce((a, b) => a + b, 0) / this.embeddingLatencies.length
+        : 0;
+
     return {
       hits: this.hits,
       misses: this.misses,
+      hitRate,
+      avgSimilarityScore,
+      avgEmbeddingLatencyMs,
+      estimatedCostSavings: this.costSavingsEstimate,
       similarityScores: [...this.similarityScores],
       embeddingLatencies: [...this.embeddingLatencies],
     };
+  }
+
+  /**
+   * Reset all statistics (for testing)
+   */
+  resetStats(): void {
+    this.hits = 0;
+    this.misses = 0;
+    this.similarityScores = [];
+    this.embeddingLatencies = [];
+    this.costSavingsEstimate = 0;
   }
 
   /**
