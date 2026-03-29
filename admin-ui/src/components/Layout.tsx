@@ -10,6 +10,8 @@ import {
   Building2,
   Users,
   UserCircle,
+  Route,
+  KeyRound,
 } from 'lucide-react';
 
 const navItems = [
@@ -17,6 +19,8 @@ const navItems = [
   { href: '/providers', label: 'Providers', icon: Server },
   { href: '/models', label: 'Model Mappings', icon: Map },
   { href: '/keys', label: 'API Keys', icon: Key },
+  { href: '/virtual-keys', label: 'Virtual Keys', icon: KeyRound },
+  { href: '/routing', label: 'Routing', icon: Route },
   { href: '/orgs', label: 'Organizations', icon: Building2 },
   { href: '/teams', label: 'Teams', icon: Users },
   { href: '/users', label: 'Users', icon: UserCircle },
