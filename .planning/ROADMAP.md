@@ -102,18 +102,27 @@ Plans:
 3. Virtual key system with per-key budgets, spend tracking, and key rotation
 4. Sophisticated routing: load balancing, cost-based routing, retry budgets
 5. Enhanced observability: cost tracking per key/model, fallback frequency, latency histograms
-   **Plans**: TBD
+   **Plans**: 6 plans
    **UI hint**: yes
+
+Plans:
+
+- [x] 05-01-PLAN.md — Dynamic configuration and YAML parsing
+- [x] 05-02-PLAN.md — Provider expansion with new adapters
+- [x] 05-03-PLAN.md — Virtual key service with persistence
+- [x] 05-04-PLAN.md — Routing service with strategy pattern
+- [x] 05-05-PLAN.md — Budget enforcement and key rotation
+- [x] 05-06-PLAN.md — Observability and Admin UI
 
 ## Progress
 
 **Execution Order:**
-Phases execute in numeric order: 1 → 2 → 3 → 4
+Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
-| Phase                                  | Plans Complete | Status      | Completed  |
-| -------------------------------------- | -------------- | ----------- | ---------- |
-| 1. Security & Multi-Tenant Hardening   | 2/2            | Completed   | 2026-03-23 |
-| 2. Reliability & Streaming Enhancement | 0/0            | In progress | -          |
-| 3. Observability & Provider Health     | 0/0            | Not started | -          |
-| 4. Smart Caching & Semantic Similarity | 0/0            | Not started | -          |
-| 5. Universal Bridge Proxy              | 0/0            | Not started | -          |
+| Phase                                  | Plans Complete | Status    | Completed  |
+| -------------------------------------- | -------------- | --------- | ---------- |
+| 1. Security & Multi-Tenant Hardening   | 2/2            | Completed | 2026-03-23 |
+| 2. Reliability & Streaming Enhancement | 0/0            | Completed | -          |
+| 3. Observability & Provider Health     | 2/2            | Completed | 2026-03-24 |
+| 4. Smart Caching & Semantic Similarity | 3/3            | Completed | 2026-03-26 |
+| 5. Universal Bridge Proxy              | 6/6            | Completed | 2026-03-29 |
