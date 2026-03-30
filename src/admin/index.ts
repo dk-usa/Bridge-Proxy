@@ -9,6 +9,8 @@ import { orgsRouter } from './orgs.js';
 import { teamsRouter } from './teams.js';
 import { usersRouter } from './users.js';
 import { semanticCacheRouter } from './semantic-cache.js';
+import { virtualKeysRoutes } from './virtual-keys.js';
+import { observabilityRoutes } from './observability.js';
 import { adminStore } from '../admin-store.js';
 
 export async function registerAdminRoutes(fastify: FastifyInstance): Promise<void> {
@@ -81,6 +83,8 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
   await fastify.register(teamsRouter, { prefix: '/teams' });
   await fastify.register(usersRouter, { prefix: '/users' });
   await fastify.register(semanticCacheRouter, { prefix: '/semantic-cache' });
+  await fastify.register(virtualKeysRoutes, { prefix: '/virtual-keys' });
+  await fastify.register(observabilityRoutes, { prefix: '/observability' });
 
   fastify.get('/stream/logs', async (request, reply) => {
     reply.raw.writeHead(200, {
