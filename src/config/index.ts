@@ -98,6 +98,12 @@ export function loadConfig(env: Record<string, string | undefined> = process.env
         ? parseInt(env.SSE_HEARTBEAT_INTERVAL_MS, 10)
         : 10000,
     },
+    semanticCache: {
+      enabled: env.SEMANTIC_CACHE_ENABLED === 'true',
+      threshold: env.SEMANTIC_CACHE_THRESHOLD ? parseFloat(env.SEMANTIC_CACHE_THRESHOLD) : 0.15,
+      embeddingModel: env.SEMANTIC_CACHE_EMBEDDING_MODEL,
+      ttl: env.SEMANTIC_CACHE_TTL ? parseInt(env.SEMANTIC_CACHE_TTL, 10) : 3600000,
+    },
   };
 
   const parsedConfig = configSchema.parse(configFromEnv);

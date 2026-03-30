@@ -8,6 +8,7 @@ import { apiKeysRouter } from './api-keys.js';
 import { orgsRouter } from './orgs.js';
 import { teamsRouter } from './teams.js';
 import { usersRouter } from './users.js';
+import { semanticCacheRouter } from './semantic-cache.js';
 import { adminStore } from '../admin-store.js';
 
 export async function registerAdminRoutes(fastify: FastifyInstance): Promise<void> {
@@ -79,6 +80,7 @@ export async function registerAdminRoutes(fastify: FastifyInstance): Promise<voi
   await fastify.register(orgsRouter, { prefix: '/orgs' });
   await fastify.register(teamsRouter, { prefix: '/teams' });
   await fastify.register(usersRouter, { prefix: '/users' });
+  await fastify.register(semanticCacheRouter, { prefix: '/semantic-cache' });
 
   fastify.get('/stream/logs', async (request, reply) => {
     reply.raw.writeHead(200, {

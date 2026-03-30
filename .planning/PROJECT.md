@@ -26,6 +26,7 @@ Provide a unified API gateway that abstracts away provider differences and enabl
 - ✓ Cache tenant isolation (SEC-01, SEC-02, SEC-03) — Validated in Phase 1
 - ✓ SSE heartbeat mechanism (REL-01, REL-02, REL-03, REL-04) — Validated in Phase 2
 - ✓ Provider health tracking (OBS-01, OBS-02, OBS-03, OBS-04) — Validated in Phase 3
+- ✓ Semantic cache with embedding similarity (CACHE-01, CACHE-02, CACHE-03, CACHE-04) — Validated in Phase 4
 
 ### Active
 
@@ -61,15 +62,16 @@ Key architectural patterns established:
 
 ## Key Decisions
 
-| Decision                        | Rationale                                           | Outcome   |
-| ------------------------------- | --------------------------------------------------- | --------- |
-| Use Drizzle ORM                 | Type-safe database access, SQLite for simplicity    | — Pending |
-| Redis for caching/rate limiting | Industry standard, well-understood                  | — Pending |
-| Multi-provider abstraction      | Enable provider flexibility and fallback            | — Pending |
-| Dual API format support         | Support both OpenAI and Anthropic clients           | — Pending |
-| Tenant-isolated cache keys      | Defense-in-depth: key prefix + entry validation     | Phase 1 ✓ |
-| SSE heartbeat for streaming     | Keep connections alive during long responses        | Phase 2 ✓ |
-| Provider health tracking        | Rolling window health calculation with success rate | Phase 3 ✓ |
+| Decision                        | Rationale                                             | Outcome   |
+| ------------------------------- | ----------------------------------------------------- | --------- |
+| Use Drizzle ORM                 | Type-safe database access, SQLite for simplicity      | — Pending |
+| Redis for caching/rate limiting | Industry standard, well-understood                    | — Pending |
+| Multi-provider abstraction      | Enable provider flexibility and fallback              | — Pending |
+| Dual API format support         | Support both OpenAI and Anthropic clients             | — Pending |
+| Tenant-isolated cache keys      | Defense-in-depth: key prefix + entry validation       | Phase 1 ✓ |
+| SSE heartbeat for streaming     | Keep connections alive during long responses          | Phase 2 ✓ |
+| Provider health tracking        | Rolling window health calculation with success rate   | Phase 3 ✓ |
+| Semantic cache                  | Cosine similarity with Redis-backed embedding storage | Phase 4 ✓ |
 
 ---
 
@@ -94,4 +96,4 @@ This document evolves at phase transitions and milestone boundaries.
 
 ---
 
-_Last updated: 2026-03-24 after Phase 3 completion_
+_Last updated: 2026-03-26 after Phase 4 completion_

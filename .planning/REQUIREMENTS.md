@@ -29,10 +29,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Smart Caching
 
-- [ ] **CACHE-01**: Semantic cache layer checks embedding similarity before provider call
-- [ ] **CACHE-02**: Similarity threshold configurable (default 0.15)
-- [ ] **CACHE-03**: Cache hit/miss metrics tracked for semantic cache
-- [ ] **CACHE-04**: Semantic cache fallback to exact match when embeddings unavailable
+- [x] **CACHE-01**: Semantic cache layer checks embedding similarity before provider call
+- [x] **CACHE-02**: Similarity threshold configurable (default 0.15)
+- [x] **CACHE-03**: Cache hit/miss metrics tracked for semantic cache
+- [x] **CACHE-04**: Semantic cache fallback to exact match when embeddings unavailable
 
 ### Universal Bridge Proxy
 
@@ -101,10 +101,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | OBS-02      | Phase 3: Observability & Provider Health     | Complete |
 | OBS-03      | Phase 3: Observability & Provider Health     | Complete |
 | OBS-04      | Phase 3: Observability & Provider Health     | Complete |
-| CACHE-01    | Phase 4: Smart Caching & Semantic Similarity | Pending  |
-| CACHE-02    | Phase 4: Smart Caching & Semantic Similarity | Pending  |
-| CACHE-03    | Phase 4: Smart Caching & Semantic Similarity | Pending  |
-| CACHE-04    | Phase 4: Smart Caching & Semantic Similarity | Pending  |
+| CACHE-01    | Phase 4: Smart Caching & Semantic Similarity | Complete |
+| CACHE-02    | Phase 4: Smart Caching & Semantic Similarity | Complete |
+| CACHE-03    | Phase 4: Smart Caching & Semantic Similarity | Complete |
+| CACHE-04    | Phase 4: Smart Caching & Semantic Similarity | Complete |
 | BRIDGE-01   | Phase 5: Universal Bridge Proxy              | Pending  |
 | BRIDGE-02   | Phase 5: Universal Bridge Proxy              | Pending  |
 | BRIDGE-03   | Phase 5: Universal Bridge Proxy              | Pending  |

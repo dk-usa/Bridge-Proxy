@@ -7,6 +7,11 @@ import { classifyError } from '../providers/errors.js';
 import { processRequest, processStreamingRequest } from '../core/pipeline.js';
 import { getConfig } from '../config/index.js';
 import { tenancyService } from '../services/tenancy/index.js';
+import { cacheService } from '../services/cache.js';
+import {
+  checkSemanticCache,
+  storeSemanticResponse,
+} from '../services/semantic-cache-middleware.js';
 
 /**
  * Extracts tenant context from API key validation.
@@ -296,6 +301,28 @@ export async function messagesRouter(fastify: FastifyInstance): Promise<void> {
       );
 
       try {
+        // Per D-09: Exact cache check first
+        const cacheKey = cacheService.generateRequestKey(
+          validatedRequest.model,
+          validatedRequest.messages,
+          { max_tokens: validatedRequest.max_tokens }
+        );
+        const exactCached = await cacheService.get(cacheKey, tenantId || '');
+
+        if (exactCached) {
+          logger.debug({ requestId: req.id }, 'Exact cache hit');
+          return reply.send(exactCached);
+        }
+
+        // Per D-09: Semantic cache check after exact miss
+        const semanticResult = await checkSemanticCache(validatedRequest, tenantId || '');
+
+        if (semanticResult.hit && semanticResult.response) {
+          logger.info({ requestId: req.id, similarity: 'semantic' }, 'Semantic cache hit');
+          return reply.send(semanticResult.response);
+        }
+
+        // Call provider on cache miss
         const response = await processRequest(validatedRequest, { requestId: req.id, tenantId });
 
         logger.debug(
@@ -306,6 +333,19 @@ export async function messagesRouter(fastify: FastifyInstance): Promise<void> {
           },
           'Message request completed'
         );
+
+        // Store in exact cache
+        await cacheService.set(cacheKey, response, tenantId || '');
+
+        // Per D-02: Store in semantic cache if we generated an embedding
+        if (semanticResult.embedding) {
+          await storeSemanticResponse(
+            validatedRequest,
+            response,
+            semanticResult.embedding,
+            tenantId || ''
+          );
+        }
 
         return reply.send(response);
       } catch (error) {

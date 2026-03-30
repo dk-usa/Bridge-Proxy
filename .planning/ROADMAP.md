@@ -82,7 +82,13 @@ Plans:
 2. Similarity threshold configurable (default 0.15) for tuning cache hit rate vs. response relevance
 3. Cache hit/miss metrics tracked, enabling cost savings measurement
 4. System falls back to exact match when embeddings service unavailable, maintaining availability
-   **Plans**: TBD
+   **Plans**: 3 plans
+
+Plans:
+
+- [x] 04-01-PLAN.md — Semantic cache service with embedding generation and similarity matching
+- [x] 04-02-PLAN.md — Configuration and metrics tracking for semantic cache
+- [x] 04-03-PLAN.md — Pipeline integration with graceful fallback
 
 ### Phase 5: Universal Bridge Proxy
 
