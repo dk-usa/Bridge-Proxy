@@ -1,0 +1,30 @@
+# Test configuration for YAML config loader
+# Tests env substitution with os.environ/VAR_NAME syntax
+
+model_list:
+  - model_name: gpt-4o
+    litellm_params:
+      model: openai/gpt-4o
+      api_key: os.environ/OPENAI_API_KEY
+      api_base: https://api.openai.com/v1
+      rpm: 500
+      tpm: 100000
+
+  - model_name: claude-3-5-sonnet
+    litellm_params:
+      model: anthropic/claude-3-5-sonnet-20241022
+      api_key: os.environ/ANTHROPIC_API_KEY
+      api_base: https://api.anthropic.com
+      timeout: 60
+      max_retries: 3
+
+general_settings:
+  master_key: os.environ/MASTER_KEY
+  database_url: sqlite:///data/gateway.db
+
+router_settings:
+  routing_strategy: simple-shuffle
+  num_retries: 2
+  timeout: 30
+  allowed_fails: 3
+  cooldown_time: 30

@@ -1,0 +1,6 @@
+# Invalid YAML syntax
+model_list:
+  - model_name: test
+    litellm_params:
+      model: openai/gpt-4
+      api_key: unclosed bracket[
