@@ -2,11 +2,26 @@
 
 ## What This Is
 
-LLM Gateway is an Anthropic-OpenAI bridge service with enterprise features including multi-tenancy, budget enforcement, and Redis-backed caching/rate limiting. It proxies LLM API requests to multiple providers (OpenAI, Anthropic, Azure, Google, Cohere, Mistral) while normalizing responses to both OpenAI and Anthropic formats.
+LLM Gateway is a comprehensive multi-provider LLM gateway (Anthropic-OpenAI bridge) with enterprise features including multi-tenancy, budget enforcement, tenant-isolated caching, SSE heartbeat for streaming, provider health tracking, and semantic cache for cost optimization. It proxies LLM API requests to multiple providers while normalizing responses to both OpenAI and Anthropic formats.
 
 ## Core Value
 
-Provide a unified API gateway that abstracts away provider differences and enables enterprise features (multi-tenancy, rate limiting, budgets) across multiple LLM providers.
+Provide a unified API gateway that abstracts away provider differences and enables enterprise features (multi-tenancy, rate limiting, budgets, observability) across multiple LLM providers.
+
+## Current State
+
+**Shipped:** v1.0 LLM Gateway Enhancement (2026-04-02)
+
+- 5 phases completed (security, reliability, observability, semantic caching, universal bridge foundation)
+- 13,153 LOC TypeScript
+- 17/20 requirements validated (3 partial with integration gaps)
+- 37 tasks completed across 10 plans
+
+**Known Gaps (Tech Debt):**
+
+- BRIDGE-03: VirtualKeyService created but not integrated in request pipeline
+- BRIDGE-04: RoutingService created but never called from pipeline
+- BRIDGE-05: ObservabilityService created but not collecting metrics during requests
 
 ## Requirements
 
@@ -23,36 +38,43 @@ Provide a unified API gateway that abstracts away provider differences and enabl
 - ✓ Admin API with API key management — existing
 - ✓ Request logging and usage tracking — existing
 - ✓ Budget enforcement per org/team — existing
-- ✓ Cache tenant isolation (SEC-01, SEC-02, SEC-03) — Validated in Phase 1
-- ✓ SSE heartbeat mechanism (REL-01, REL-02, REL-03, REL-04) — Validated in Phase 2
-- ✓ Provider health tracking (OBS-01, OBS-02, OBS-03, OBS-04) — Validated in Phase 3
-- ✓ Semantic cache with embedding similarity (CACHE-01, CACHE-02, CACHE-03, CACHE-04) — Validated in Phase 4
+- ✓ Cache tenant isolation (SEC-01, SEC-02, SEC-03) — v1.0
+- ✓ SSE heartbeat mechanism (REL-01, REL-02, REL-03) — v1.0
+- ✓ Provider health tracking (OBS-01, OBS-02, OBS-03, OBS-04) — v1.0
+- ✓ Semantic cache with embedding similarity (CACHE-01, CACHE-02, CACHE-03, CACHE-04) — v1.0
+- ✓ Dynamic provider configuration via YAML (BRIDGE-01) — v1.0 (partial)
+- ✓ Provider expansion foundation (BRIDGE-02) — v1.0 (partial)
 
 ### Active
 
+- [ ] Integrate RoutingService into request pipeline (BRIDGE-04)
+- [ ] Integrate VirtualKeyService budget enforcement (BRIDGE-03)
+- [ ] Wire ObservabilityService metrics collection (BRIDGE-05)
 - [ ] Add additional LLM providers
 - [ ] Enhance admin UI dashboard
-- [ ] Add more detailed analytics/usage metrics
 - [ ] Implement webhook notifications
-- [ ] Add more sophisticated routing rules
 
 ### Out of Scope
 
-- Mobile SDKs — defer to future
-- GraphQL API — not needed currently
-- Real-time WebSocket chat — not needed
+- Mobile SDKs — defer to future, web API sufficient
+- GraphQL API — REST API sufficient for current needs
+- Real-time WebSocket chat — not needed for API gateway use case
+- Prompt playground UI — out of scope for gateway service
 
 ## Context
 
-This is an existing Node.js/TypeScript project using Fastify, Drizzle ORM, SQLite, and Redis. The codebase is well-structured with clear separation between providers, adapters, routes, and services. The admin UI is a React/Vite application.
+Node.js/TypeScript gateway service using Fastify, Drizzle ORM, SQLite, and Redis. Well-structured with clear separation between providers, adapters, routes, and services. Admin UI is React/Vite application.
 
-Key architectural patterns established:
+**Architectural patterns established:**
 
 - Provider abstraction layer for multi-provider support
 - Adapter pattern for format conversion (Anthropic ↔ OpenAI)
 - Multi-tenancy service for org/team/user hierarchy
 - Redis-backed caching and rate limiting
 - Tenant-isolated cache with defense-in-depth (key prefix + entry validation)
+- SSE heartbeat mechanism for streaming reliability
+- Rolling window provider health tracking
+- Semantic cache with cosine similarity matching
 
 ## Constraints
 
@@ -62,38 +84,20 @@ Key architectural patterns established:
 
 ## Key Decisions
 
-| Decision                        | Rationale                                             | Outcome   |
-| ------------------------------- | ----------------------------------------------------- | --------- |
-| Use Drizzle ORM                 | Type-safe database access, SQLite for simplicity      | — Pending |
-| Redis for caching/rate limiting | Industry standard, well-understood                    | — Pending |
-| Multi-provider abstraction      | Enable provider flexibility and fallback              | — Pending |
-| Dual API format support         | Support both OpenAI and Anthropic clients             | — Pending |
-| Tenant-isolated cache keys      | Defense-in-depth: key prefix + entry validation       | Phase 1 ✓ |
-| SSE heartbeat for streaming     | Keep connections alive during long responses          | Phase 2 ✓ |
-| Provider health tracking        | Rolling window health calculation with success rate   | Phase 3 ✓ |
-| Semantic cache                  | Cosine similarity with Redis-backed embedding storage | Phase 4 ✓ |
+| Decision                                  | Rationale                                             | Outcome    |
+| ----------------------------------------- | ----------------------------------------------------- | ---------- |
+| Use Drizzle ORM                           | Type-safe database access, SQLite for simplicity      | ✓ Good     |
+| Redis for caching/rate limiting           | Industry standard, well-understood                    | ✓ Good     |
+| Multi-provider abstraction                | Enable provider flexibility and fallback              | ✓ Good     |
+| Dual API format support                   | Support both OpenAI and Anthropic clients             | ✓ Good     |
+| Tenant-isolated cache keys                | Defense-in-depth: key prefix + entry validation       | ✓ Good     |
+| SSE heartbeat for streaming               | Keep connections alive during long responses          | ✓ Good     |
+| Provider health tracking                  | Rolling window health calculation with success rate   | ✓ Good     |
+| Semantic cache                            | Cosine similarity with Redis-backed embedding storage | ✓ Good     |
+| RoutingService created but not integrated | Services built, integration deferred                  | ⚠️ Revisit |
+| VirtualKeyService not wired to pipeline   | Admin CRUD works, no enforcement                      | ⚠️ Revisit |
+| ObservabilityService not collecting       | Admin API works, no data collection                   | ⚠️ Revisit |
 
 ---
 
-## Evolution
-
-This document evolves at phase transitions and milestone boundaries.
-
-**After each phase transition** (via `/gsd-transition`):
-
-1. Requirements invalidated? → Move to Out of Scope with reason
-2. Requirements validated? → Move to Validated with phase reference
-3. New requirements emerged? → Add to Active
-4. Decisions to log? → Add to Key Decisions
-5. "What This Is" still accurate? → Update if drifted
-
-**After each milestone** (via `/gsd-complete-milestone`):
-
-1. Full review of all sections
-2. Core Value check — still the right priority?
-3. Audit Out of Scope — reasons still valid?
-4. Update Context with current state
-
----
-
-_Last updated: 2026-03-26 after Phase 4 completion_
+_Last updated: 2026-04-02 after v1.0 milestone completion_
